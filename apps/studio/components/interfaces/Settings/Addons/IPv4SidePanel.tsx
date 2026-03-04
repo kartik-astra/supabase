@@ -62,12 +62,11 @@ const IPv4SidePanel = () => {
   const availableOptions =
     (addons?.available_addons ?? []).find((addon) => addon.type === 'ipv4')?.variants ?? []
 
-  const isFreePlan = organization?.plan?.id === 'free'
   const { hasAccess: hasAccessToIPv4, isLoading: isLoadingEntitlement } =
     useCheckEntitlements('ipv4')
+  const { hasAccess: isPgBouncerEnabled } = useCheckEntitlements('dedicated_pooler')
   const hasChanges = selectedOption !== (subscriptionIpV4Option?.variant.identifier ?? 'ipv4_none')
   const selectedIPv4 = availableOptions.find((option) => option.identifier === selectedOption)
-  const isPgBouncerEnabled = !isFreePlan
 
   useEffect(() => {
     if (visible) {
