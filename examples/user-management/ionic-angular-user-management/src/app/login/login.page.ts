@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase.service';
 
 @Component({
   selector: 'app-login',
+  standalone: false,
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
 })

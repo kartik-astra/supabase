@@ -4,6 +4,7 @@ import { SupabaseService } from './supabase.service';
 
 @Component({
   selector: 'app-root',
+  standalone: false,
   templateUrl: 'app.component.html',
   styleUrls: ['app.component.scss'],
 })

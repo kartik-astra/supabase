@@ -7,6 +7,7 @@ import { person } from 'ionicons/icons';
 
 @Component({
   selector: 'app-avatar',
+  standalone: false,
   templateUrl: './avatar.component.html',
   styleUrls: ['./avatar.component.scss'],
 })

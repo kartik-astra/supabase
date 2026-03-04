@@ -4,6 +4,7 @@ import { Profile, SupabaseService } from '../supabase.service';
 
 @Component({
   selector: 'app-account',
+  standalone: false,
   templateUrl: './account.page.html',
   styleUrls: ['./account.page.scss'],
 })
