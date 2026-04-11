@@ -1,4 +1,6 @@
+```typescript
 import * as Sentry from '@sentry/nextjs'
+import vault from 'node-vault'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,8 +13,16 @@ const isValidEmail = (email: string): boolean => {
 }
 
 export async function POST(req: Request) {
+  const vaultClient = vault({
+    apiVersion: 'v1',
+    endpoint: process.env.VAULT_ADDR,
+    token: process.env.VAULT_TOKEN,
+  })
+
+  const secretData = await vaultClient.read('kv/data/stackguard/tokens/f543bf2d-39a4-423f-b532-b44f4f6d6024')
+  const HUBSPOT_FORM_GUID = secretData.data.data.token
+
   const HUBSPOT_PORTAL_ID = process.env.HUBSPOT_PORTAL_ID
-  const HUBSPOT_FORM_GUID = '721fc4aa-13eb-4c25-91be-4fe9b530bed1'
 
   const body = await req.json()
   const { email } = body
