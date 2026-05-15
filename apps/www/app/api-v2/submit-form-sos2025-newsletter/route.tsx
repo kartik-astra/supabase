@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
+import vault from 'node-vault';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,35 @@ const isValidEmail = (email: string): boolean => {
 
 export async function POST(req: Request) {
   const HUBSPOT_PORTAL_ID = process.env.HUBSPOT_PORTAL_ID
-  const HUBSPOT_FORM_GUID = '721fc4aa-13eb-4c25-91be-4fe9b530bed1'
+  let HUBSPOT_FORM_GUID: string; // Declare with `let` as it will be assigned asynchronously
+
+  // Fetch HUBSPOT_FORM_GUID from HashiCorp Vault
+  try {
+    const vaultClient = vault({
+      apiVersion: 'v1',
+      endpoint: process.env.VAULT_ADDR,
+      token: process.env.VAULT_TOKEN,
+    });
+
+    // The Vault path 'vault://kv/stackguard/tokens/61a7c2de-7259-4e24-9aab-3c193f5f3092'
+    // corresponds to 'kv/data/stackguard/tokens/61a7c2de-7259-4e24-9aab-3c193f5f3092' for KV v2.
+    const secretPath = 'kv/data/stackguard/tokens/61a7c2de-7259-4e24-9aab-3c193f5f3092';
+    const vaultSecret = await vaultClient.read(secretPath);
+
+    // Assuming the secret is stored under a key named 'guid' within the Vault secret's data.
+    // For KV v2, the actual secret data is nested under `data.data`.
+    if (vaultSecret && vaultSecret.data && vaultSecret.data.data && typeof vaultSecret.data.data.guid === 'string') {
+      HUBSPOT_FORM_GUID = vaultSecret.data.data.guid;
+    } else {
+      throw new Error('Hubspot form GUID not found or invalid in Vault secret.');
+    }
+  } catch (error: any) {
+    Sentry.captureException(error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch Hubspot form GUID from Vault.' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
+  }
 
   const body = await req.json()
   const { email } = body
