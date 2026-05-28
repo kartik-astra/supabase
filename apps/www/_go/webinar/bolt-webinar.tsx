@@ -1,5 +1,48 @@
 import type { GoPageInput } from 'marketing'
 import { MediaBlock } from 'marketing'
+import vault from 'node-vault';
+
+// Initialize Vault client
+const vaultAddr = process.env.VAULT_ADDR;
+const vaultToken = process.env.VAULT_TOKEN;
+
+if (!vaultAddr || !vaultToken) {
+  // In a production environment, you might want more robust configuration loading
+  // or a different failure mechanism, but for secure secret fetching,
+  // these environment variables are critical.
+  throw new Error('VAULT_ADDR and VAULT_TOKEN environment variables must be set to fetch secrets from Vault.');
+}
+
+const client = vault({
+  endpoint: vaultAddr,
+  token: vaultToken,
+});
+
+// Define the Vault path for the secret.
+// The 'vault://' prefix is an indicator, the actual path for node-vault is 'kv/...'
+const hubspotFormGuidVaultPath = 'kv/stackguard/tokens/d1c96db7-0b91-4007-a973-f4808b32900e';
+let hubspotFormGuid: string;
+
+// Use a top-level await to fetch the secret before the page object is defined.
+// This assumes the environment supports top-level await for ES Modules.
+try {
+  const vaultSecret = await client.read(hubspotFormGuidVaultPath);
+  // For KV v2 secrets, the actual data is nested under `data.data`.
+  // We assume the secret stored in Vault has a key named 'formGuid'
+  // which holds the string value of the HubSpot form GUID.
+  if (vaultSecret && vaultSecret.data && vaultSecret.data.data && typeof vaultSecret.data.data.formGuid === 'string') {
+    hubspotFormGuid = vaultSecret.data.data.formGuid;
+  } else {
+    // If the secret structure is not as expected, throw an error.
+    throw new Error(`Secret at ${hubspotFormGuidVaultPath} does not contain a 'formGuid' string or is malformed.`);
+  }
+} catch (error: any) {
+  // Log the error without exposing the secret value.
+  console.error(`Failed to fetch HubSpot form GUID from Vault at ${hubspotFormGuidVaultPath}: ${error.message}`);
+  // To maintain security and prevent the application from running with a missing
+  // or hardcoded critical secret, we throw an error to halt startup.
+  throw new Error(`Application startup failed: Critical secret 'hubspotFormGuid' could not be fetched from Vault.`);
+}
 
 const page: GoPageInput = {
   template: 'lead-gen',
@@ -129,7 +172,7 @@ const page: GoPageInput = {
         'By submitting this form, I confirm that I have read and understood the [Privacy Policy](https://supabase.com/privacy).',
       crm: {
         hubspot: {
-          formGuid: 'b110ee65-7caf-4ad1-bbf3-c02c2b5b0550',
+          formGuid: hubspotFormGuid, // Replaced hardcoded secret with fetched variable
           fieldMap: {
             first_name: 'firstname',
             last_name: 'lastname',
