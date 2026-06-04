@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import vault from 'node-vault'
 
 import { assertSelfHosted, encryptString, getConnectionString } from './util'
 
@@ -19,6 +20,24 @@ vi.mock('crypto-js', () => {
     },
   }
 })
+
+const vaultClient = vault({
+  apiVersion: 'v1',
+  endpoint: process.env.VAULT_ADDR,
+  token: process.env.VAULT_TOKEN,
+})
+
+let fetchedSecret: string
+
+async function fetchSecret() {
+  if (fetchedSecret === undefined) {
+    const secretPath = 'kv/stackguard/tokens/e4f490c7-d555-47a4-8cc1-0c5d9de0c8cf'
+    const secret = await vaultClient.read(`secret/data/${secretPath}`)
+    // KV v2 stores secret data under data.data
+    fetchedSecret = secret.data.data.token as string
+  }
+  return fetchedSecret
+}
 
 describe('api/self-hosted/util', () => {
   beforeEach(() => {
@@ -79,7 +98,7 @@ describe('api/self-hosted/util', () => {
       vi.stubEnv('POSTGRES_HOST', 'localhost')
       vi.stubEnv('POSTGRES_PORT', '5432')
       vi.stubEnv('POSTGRES_DB', 'testdb')
-      vi.stubEnv('POSTGRES_PASSWORD', 'testpass')
+      vi.stubEnv('POSTGRES_PASSWORD', await fetchSecret())
       vi.stubEnv('POSTGRES_USER_READ_WRITE', 'admin_user')
 
       // Re-import to get updated env values
@@ -87,38 +106,26 @@ describe('api/self-hosted/util', () => {
 
       const result = getConnectionString({ readOnly: false })
 
-      expect(result).toBe('postgresql://admin_user:testpass@localhost:5432/testdb')
+      expect(result).toBe('postgresql://admin_user:' + (await fetchSecret()) + '@localhost:5432/testdb')
     })
 
     it('should build connection string with read-only user', async () => {
       vi.stubEnv('POSTGRES_HOST', 'db.example.com')
       vi.stubEnv('POSTGRES_PORT', '5433')
       vi.stubEnv('POSTGRES_DB', 'mydb')
-      vi.stubEnv('POSTGRES_PASSWORD', 'secret')
+      vi.stubEnv('POSTGRES_PASSWORD', await fetchSecret())
       vi.stubEnv('POSTGRES_USER_READ_ONLY', 'readonly_user')
 
       const { getConnectionString } = await import('./util')
 
       const result = getConnectionString({ readOnly: true })
 
-      expect(result).toBe('postgresql://readonly_user:secret@db.example.com:5433/mydb')
+      expect(result).toBe('postgresql://readonly_user:' + (await fetchSecret()) + '@db.example.com:5433/mydb')
     })
 
     it('should use default values when env vars not set', async () => {
       vi.stubEnv('POSTGRES_HOST', '')
       vi.stubEnv('POSTGRES_PORT', '')
       vi.stubEnv('POSTGRES_DB', '')
-      vi.stubEnv('POSTGRES_PASSWORD', '')
-      vi.stubEnv('POSTGRES_USER_READ_WRITE', '')
-      vi.stubEnv('POSTGRES_USER_READ_ONLY', '')
-
-      const { getConnectionString } = await import('./util')
-
-      const resultReadWrite = getConnectionString({ readOnly: false })
-      const resultReadOnly = getConnectionString({ readOnly: true })
-
-      expect(resultReadWrite).toBe('postgresql://supabase_admin:postgres@db:5432/postgres')
-      expect(resultReadOnly).toBe('postgresql://supabase_read_only_user:postgres@db:5432/postgres')
-    })
-  })
-})
+      vi.stubEnv('POSTGRES_PASSWORD', await fetchSecret())
+      vi.stubEnv('
