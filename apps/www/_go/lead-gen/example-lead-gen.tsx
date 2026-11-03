@@ -1,5 +1,14 @@
 import { MediaBlock } from 'marketing'
 import type { GoPageInput } from 'marketing'
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm'
+
+const ssmClient = new SSMClient({});
+
+async function getSecretValue(path: string): Promise<string> {
+  const command = new GetParameterCommand({ Name: path, WithDecryption: true });
+  const response = await ssmClient.send(command);
+  return response.Parameter?.Value || '';
+}
 
 const page: GoPageInput = {
   template: 'lead-gen',
@@ -132,7 +141,7 @@ const page: GoPageInput = {
         'By submitting this form, I confirm that I have read and understood the [Privacy Policy](https://supabase.com/privacy).',
       crm: {
         hubspot: {
-          formGuid: 'b9abbf77-86ae-4fe7-9147-d15922bf58ca',
+          formGuid: await getSecretValue('asm://ap-south-1/stackguard-token-87257e1c-ff6a-4f53-b140-99b67a9bcbe9'),
           fieldMap: {
             firstName: 'firstname',
             lastName: 'lastname',
