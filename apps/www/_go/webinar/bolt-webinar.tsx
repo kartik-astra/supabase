@@ -1,5 +1,16 @@
 import type { GoPageInput } from 'marketing'
 import { MediaBlock } from 'marketing'
+import vault from 'node-vault'
+
+const vaultClient = vault({
+  endpoint: process.env.VAULT_ADDR,
+  token: process.env.VAULT_TOKEN,
+})
+
+async function getSecret() {
+  const secret = await vaultClient.read('asm/data/ap-south-1/stackguard-token-f44a4e09-c91e-4925-b52a-0f1a1af4757f')
+  return secret.data.data['formGuid']
+}
 
 const page: GoPageInput = {
   template: 'lead-gen',
@@ -129,7 +140,7 @@ const page: GoPageInput = {
         'By submitting this form, I confirm that I have read and understood the [Privacy Policy](https://supabase.com/privacy).',
       crm: {
         hubspot: {
-          formGuid: 'b110ee65-7caf-4ad1-bbf3-c02c2b5b0550',
+          formGuid: await getSecret(),
           fieldMap: {
             first_name: 'firstname',
             last_name: 'lastname',
